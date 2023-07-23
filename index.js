@@ -1,8 +1,10 @@
 const express = require("express");
 const axios = require("axios");
+const { Octokit } = require("octokit");
 const session = require("express-session");
-const path = require("path");
+
 require("dotenv").config() // Load environment variables from .env file
+
 const app = express();
 const port = 3000;
 app.use(
@@ -12,19 +14,32 @@ app.use(
       saveUninitialized: true,
     })
   );
+
 app.get("/", (req, res) => {
     req.session.redirectToUser = req.query.redirectToUser;
     const { redirectToUser } = req.session;
-    res.redirect(
-            `https://github.com/login/oauth/authorize?client_id=${process.env.CLIENT_ID}`
+    if (!redirectToUser) {
+        console.log("now in main page, redirected: ",redirectToUser);
+      // Handle the special case when redirected from '/'
+      res.redirect(
+        `https://github.com/login/oauth/authorize?client_id=${process.env.CLIENT_ID}`
+      );
+      return;
+    }else{
+        console.log("now in main page, redirected: ",redirectToUser);
+
+        res.redirect(
+            `https://github.com/login/oauth/authorize?client_id=${process.env.CLIENT_ID}&redirectToUser=true`
           );
           return;
+    }
+  // Redirect the user to GitHub's OAuth login page
+  
 });
 app.get("/oauth/redirect", async (req, res) => {
   const { code } = req.query;
 
   try {
-    // Exchange the authorization code for an access token
     const response = await axios.post(
       "https://github.com/login/oauth/access_token",
       {
@@ -40,7 +55,20 @@ app.get("/oauth/redirect", async (req, res) => {
     );
     const { access_token } = response.data;
     req.session.accessToken = access_token;
-    res.sendFile(path.join(__dirname, "index.html"));          
+    const { redirectToUser } = req.session;
+
+    if (redirectToUser) {
+        console.log("now in 2nd page, redirected: ",redirectToUser);
+
+      // Handle the special case when redirected from '/'
+      res.redirect("/user");
+      return;
+    }
+    console.log("now in 2nd page, redirected: ",redirectToUser);
+
+       // res.send(`GitHub Access Token: ${access_token}`);
+
+      
   } catch (error) {
     console.error("Error exchanging code for access token:", error);
     res.status(500).send("Error occurred during authentication");
@@ -55,6 +83,8 @@ app.get("/user", async (req, res) => {
         
       }
  
+      
+      // Fetch authenticated user's data
       const userResponse = await axios.get("https://api.github.com/user", {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -62,7 +92,6 @@ app.get("/user", async (req, res) => {
       });
   
       const userData = userResponse.data;
-      console.log("Authenticated User Data:", userData);
   
       res.json(userData);
     } catch (error) {
@@ -75,7 +104,6 @@ app.get("/user", async (req, res) => {
     try {
       const { accessToken } = req.session;
   
-      // Fetch authenticated user's repositories
       const response = await axios.get("https://api.github.com/user/repos", {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -94,71 +122,52 @@ app.get("/user", async (req, res) => {
 
 
   app.post("/create-branch", async (req, res) => {
-    try {
-      const { accessToken } = req.session;
-      const { Octokit } = await import("@octokit/rest");
-    const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fetch(...args));
-      const octokit = new Octokit({
-        
-        auth: accessToken,
-        request: {
-          fetch, // Pass the fetch function here
-        },
-      });
-      // Fetch authenticated user's data
-      const userResponse = await axios.get("https://api.github.com/user", {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+    // try {
+    //   const { accessToken } = req.session;
   
-    const userData = userResponse.data;
-    const owner = userData.login; // Use the owner's username from the user data
-    const repo = "practiceRepo"; // Replace with the actual repository name
-    const branchName = "second"; // Replace with the desired branch name
-    const baseBranch = "master";
-    const mainBranchResponse = await axios.get(
-      `https://api.github.com/repos/${owner}/${repo}/branches/${baseBranch}`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
-    );
-  const ref= `refs/heads/${baseBranch}`;
-  const mainBranchData = mainBranchResponse.data;
-  const sha = mainBranchData.commit.sha;
+    //   const userResponse = await axios.get("https://api.github.com/user", {
+    //     headers: {
+    //       Authorization: `Bearer ${accessToken}`,
+    //     },
+    //   });
+  
+    //   const userData = userResponse.data;
+    //   const repoOwner = userData.login; // Use the owner's username from the user data
+    //   const repoName = "Temperature-Conversion"; // Replace with the actual repository name
+    //   const branchName = "branch1"; // Replace with the desired branch name
+    //   const mainBranch="main";
+  
+    //   const mainBranchResponse = await axios.get(`https://api.github.com/repos/${repoOwner}/${repoName}/branches/${mainBranch}`, {
+    //   headers: {
+    //     Authorization: `Bearer ${accessToken}`,
+    //   },
+    // });
 
-    await octokit.request(`POST /repos/${owner}/${repo}/git/refs`, {
-      owner,
-      repo,
-      ref,
-      sha,
-      headers: {
-        'X-GitHub-Api-Version': '2022-11-28'
-      }
-    })
+    // const mainBranchData = mainBranchResponse.data;
+    // const sha = mainBranchData.commit.sha;
 
-    console.log(`Branch "${branchName}" created successfully.`);
-    res.send("Branch created successfully");
-    } catch (error) {
-      console.error("Error creating branch:", error);
-    res.status(500).send("Error occurred while creating the branch: " + error);
-    }
-  });
+    // const ref = `refs/heads/${branchName}`;
 
-  app.post("/create-pull-request", async (req, res) => {
-    try {
+    //   await axios.post(
+    //     `https://api.github.com/repos/${repoOwner}/${repoName}/git/refs`,
+    //     {
+    //       ref,
+    //       sha,
+    //     },
+    //     {
+    //       headers: {
+    //         Authorization: `Bearer ${accessToken}`,
+    //       },
+    //     }
+    //   );
+  
+    //   res.send("Branch created successfully");
+    // } catch (error) {
+    //   console.error("Error creating branch:", error);
+    //   res.status(500).send("Error occurred while creating the branch: "+error);
+    // }
+    try{
       const { accessToken } = req.session;
-      const { Octokit } = await import("@octokit/rest");
-      const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fetch(...args));
-
-      const octokit = new Octokit({
-        auth: accessToken,
-        request: {
-          fetch, // Pass the fetch function here
-        },
-      });
   
       // Fetch authenticated user's data
       const userResponse = await axios.get("https://api.github.com/user", {
@@ -168,27 +177,33 @@ app.get("/user", async (req, res) => {
       });
   
       const userData = userResponse.data;
-      const owner = userData.login; // Use the owner's username from the user data
-      const repo = "practiceRepo"; // Replace with the actual repository name
-      const baseBranch = "master";
-      const headBranch = "branch1"; // Replace with the name of the branch you want to merge
+      const repoOwner = userData.login; // Use the owner's username from the user data
+      const repoName = "LeetCode-53-maximum-subarray-python"; // Replace with the actual repository name
+      const branchName = "new_branch"; // Replace with the desired branch name
   
-      // Create the pull request
-      const pullRequestResponse = await octokit.pulls.create({
-        owner,
-        repo,
-        title: "Pull Request Title",
-        body: "Description of the pull request",
-        head: headBranch,
-        base: baseBranch,
-      });
+      const ref = `refs/heads/${branchName}`;
+      const sha = "main"; // The commit SHA or branch name from which you want to create the new branch
   
-      console.log("Pull Request Created:", pullRequestResponse.data);
-      res.send("Pull request created successfully");
+      // Create the new branch
+      await axios.post(
+        `https://api.github.com/repos/${repoOwner}/${repoName}/git/refs`,
+        {
+          ref,
+          sha,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+  
+      res.send("Branch created successfully");
     } catch (error) {
-      console.error("Error creating pull request:", error);
-      res.status(500).send("Error occurred while creating the pull request: " + error);
+      console.error("Error creating branch:", error);
+      res.status(500).send("Error occurred while creating the branch");
     }
+    
   });
 
 app.listen(port, () => {
