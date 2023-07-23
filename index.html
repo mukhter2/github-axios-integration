@@ -1,0 +1,57 @@
+<!-- index.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Branch</title>
+</head>
+<body>
+  <h1>Create Branch</h1>
+  <button onclick="createBranch()">Create Branch</button>
+  <button onclick="createPullRequest()">Create Pull Request</button>
+  <script>
+    function createBranch() {
+      // Send a POST request to the /create-branch endpoint
+      fetch('/create-branch', {
+        method: 'POST',
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Failed to create branch');
+        }
+        return response.text();
+      })
+      .then(data => {
+        alert(data); // Show the response message (optional)
+      })
+      .catch(error => {
+        console.error('Error creating branch:', error);
+        alert('Error occurred while creating the branch');
+      });
+    }
+
+
+    function createPullRequest() {
+        // Send a POST request to the /create-branch endpoint
+        fetch('/create-pull-request', {
+          method: 'POST',
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Failed to create branch');
+          }
+          return response.text();
+        })
+        .then(data => {
+          alert(data); // Show the response message (optional)
+        })
+        .catch(error => {
+          console.error('Error creating branch:', error);
+          alert('Error occurred while creating the branch');
+        });
+      }
+  </script>
+</body>
+</html>
